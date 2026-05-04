@@ -4245,6 +4245,11 @@ export class MonksEnhancedJournal {
 					{ id: "sp", name: i18n("MonksEnhancedJournal.currency.silver"), convert: 0.1 },
 					{ id: "cp", name: i18n("MonksEnhancedJournal.currency.copper"), convert: 0.01 }
 				];
+			case "sf2e":
+				return [
+					{ id: "gp", name: i18n("SF2E.CurrencyUPBLabel"), convert: 0 },
+					{ id: "sp", name: i18n("SF2E.CurrencyCreditsLabel"), convert: 0.1 }
+				];
 			case "ds4":
 				return [
 					{ id: "gold", name: i18n("MonksEnhancedJournal.currency.gold"), convert: 0 },
