@@ -327,11 +327,22 @@ export class LootSheet extends EnhancedJournalSheet {
                         delete itemData._id;
                         let itemQty = getValue(itemData, quantityname(), 1);
                         setValue(itemData, quantityname(), result.quantity * itemQty);
-                        let sheet = actor.sheet;
-                        if (sheet._onDropItem)
-                            sheet._onDropItem({ preventDefault: () => { }, target: { closest: () => { } } }, itemData );
-                        else
-                            actor.createEmbeddedDocuments("Item", [itemData]);
+                        try {
+                            let sheet = actor.sheet;
+                            // Check if the function exists before calling it
+                            if (sheet && typeof sheet._onDropItem === "function") {
+                                await sheet._onDropItem(
+                                    { preventDefault: () => { }, target: { closest: () => { } } }, 
+                                    itemData 
+                                );
+                            } else {
+                                // Fallback if sheet isn't open or function is missing
+                                await actor.createEmbeddedDocuments("Item", [itemData]);
+                            }
+                        } catch (err) {
+                            console.warn("[Monks Loot SF2e Patch] _onDropLootItem failed, using fallback", err);
+                            await actor.createEmbeddedDocuments("Item", [itemData]);
+                        }
 
                         if (entry)
                             this.constructor.purchaseItem.call(this.constructor, entry, data.data._id, result.quantity, { actor });
@@ -455,7 +466,7 @@ export class LootSheet extends EnhancedJournalSheet {
         log('drop data', event, data);
     }
 
-    static async onRequestItem(event, target) {
+static async onRequestItem(event, target) {
         let li = target.closest("li");
 
         let item;
@@ -494,7 +505,6 @@ export class LootSheet extends EnhancedJournalSheet {
         } else if (this.document.flags['monks-enhanced-journal'].purchasing == 'confirm') {
             let result = await LootSheet.confirmQuantity(item, max, "take", false);
             if ((result?.quantity ?? 0) > 0) {
-                //create the chat message informaing the GM that player is trying to sell an item.
                 item = foundry.utils.duplicate(item);
                 foundry.utils.setProperty(item, "flags.monks-enhanced-journal.quantity", result.quantity);
                 foundry.utils.setProperty(item, "flags.monks-enhanced-journal.maxquantity", max);
@@ -506,16 +516,32 @@ export class LootSheet extends EnhancedJournalSheet {
         } else if (this.document.flags['monks-enhanced-journal'].purchasing == 'free') {
             let result = await LootSheet.confirmQuantity(item, max, "take", false);
             if ((result?.quantity ?? 0) > 0) {
+                
                 // Create the owned item
                 let itemData = foundry.utils.duplicate(item);
                 delete itemData._id;
                 let itemQty = getValue(itemData, quantityname(), 1);
                 setValue(itemData, quantityname(), result.quantity * itemQty);
-                let sheet = actor.sheet;
-                if (sheet._onDropItem)
-                    sheet._onDropItem({ preventDefault: () => { }, target: { closest: () => { } } }, itemData);
-                else
-                    actor.createEmbeddedDocuments("Item", [itemData]);
+
+                try {
+                    let sheet = actor.sheet;
+                    if (sheet && typeof sheet._onDropItem === "function") {
+                        await sheet._onDropItem(
+                            { preventDefault: () => { }, target: { closest: () => { } } }, 
+                            itemData
+                        );
+                    } else {
+                        await actor.createEmbeddedDocuments("Item", [itemData]);
+                    }
+                } catch (err) {
+                    console.warn("[Monks Loot SF2e Patch] _onDropItem failed, using fallback", err);
+                    try {
+                        await actor.createEmbeddedDocuments("Item", [itemData]);
+                    } catch (fatalErr) {
+                        console.error("[Monks Loot SF2e Patch] CRITICAL: Item grant failed", fatalErr);
+                        ui.notifications.error("Failed to grant item to actor.");
+                    }
+                }
 
                 if (this.document.isOwner) {
                     this.constructor.purchaseItem.call(this.constructor, this.document, item._id, result.quantity, { chatmessage: false });
@@ -532,8 +558,8 @@ export class LootSheet extends EnhancedJournalSheet {
             }
         }
     }
-
-    static async onGrantItem(event, target) {
+    
+static async onGrantItem(event, target) {
         let userId = target.dataset.userId;
         let li = target.closest("li.item");
 
@@ -553,6 +579,7 @@ export class LootSheet extends EnhancedJournalSheet {
 
         let max = foundry.utils.getProperty(item, "flags.monks-enhanced-journal.quantity");
         let result = await LootSheet.confirmQuantity(item, max, format("MonksEnhancedJournal.GrantToActor", { name: actor.name }), false);
+        
         if ((result?.quantity ?? 0) > 0) {
             foundry.utils.setProperty(item, "flags.monks-enhanced-journal.requests." + userId, false);
             await this.document.setFlag('monks-enhanced-journal', 'items', items);
@@ -560,15 +587,35 @@ export class LootSheet extends EnhancedJournalSheet {
             // Create the owned item
             let itemData = foundry.utils.duplicate(item);
             delete itemData._id;
+            
             let itemQty = getValue(itemData, quantityname(), 1);
             setValue(itemData, quantityname(), result.quantity * itemQty);
-            let sheet = actor.sheet;
-            if (sheet._onDropItem)
-                sheet._onDropItem({ preventDefault: () => { }, target: { closest: () => { } } }, itemData );
-            else
-                actor.createEmbeddedDocuments("Item", [itemData]);
 
+            try {
+                let sheet = actor.sheet;
+                // Check if the sheet exists and has the drop handler
+                if (sheet && typeof sheet._onDropItem === "function") {
+                    await sheet._onDropItem(
+                        { preventDefault: () => { }, target: { closest: () => { } } }, 
+                        itemData 
+                    );
+                } else {
+                    await actor.createEmbeddedDocuments("Item", [itemData]);
+                }
+            } catch (err) {
+                console.warn("[Monks Loot SF2e Patch] _onDropItem failed, using direct create fallback", err);
+                try {
+                    // Final fallback to core Foundry document creation
+                    await actor.createEmbeddedDocuments("Item", [itemData]);
+                } catch (fatalErr) {
+                    console.error("[Monks Loot SF2e Patch] CRITICAL: Failed to grant item.", fatalErr);
+                    ui.notifications.error("Failed to grant item. Check console for details.");
+                }
+            }
+
+            // Record the purchase/grant in the journal
             await this.constructor.purchaseItem.call(this.constructor, this.document, id, result.quantity, { actor, user });
+
         } else if (result?.quantity === 0) {
             foundry.utils.setProperty(item, "flags.monks-enhanced-journal.requests." + userId, false);
             await this.document.setFlag('monks-enhanced-journal', 'items', items);
