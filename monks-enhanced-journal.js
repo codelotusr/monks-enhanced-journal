@@ -5853,8 +5853,8 @@ export class MonksEnhancedJournal {
         ];
       case "sf2e":
         return [
-          { id: "gp", name: i18n("SF2E.CurrencyUPBLabel"), convert: 0 },
-          { id: "sp", name: i18n("SF2E.CurrencyCreditsLabel"), convert: 0.1 },
+          { id: "gp", name: i18n("MonksEnhancedJournal.currency.upb"), convert: 0 },
+          { id: "sp", name: i18n("MonksEnhancedJournal.currency.credit"), convert: 0.1 },
         ];
       case "ds4":
         return [
