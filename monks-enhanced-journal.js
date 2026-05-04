@@ -4499,34 +4499,55 @@ Hooks.on('renderSceneControls', (controls) => {
 });
 
 Hooks.on('dropActorSheetData', (actor, sheet, data) => {
-	//check to see if an item was dropped from either the encounter or quest and record what actor it was
-	if (MonksEnhancedJournal._dragItem && data.itemId == MonksEnhancedJournal._dragItem) {
-		MonksEnhancedJournal._dragItem = null;
+    if (MonksEnhancedJournal._dragItem && data.itemId == MonksEnhancedJournal._dragItem) {
+        MonksEnhancedJournal._dragItem = null;
 
-		let page = fromUuidSync(data.uuid);
-		if (page) {
-			MonksEnhancedJournal.fixType(page);
-			const cls = (page._getSheetClass ? page._getSheetClass() : null);
-			if (cls && cls.itemDropped) {
-				cls.itemDropped.call(cls, data.itemId, actor, page).then((result) => {
-					if ((result?.quantity ?? 0) > 0) {
-						let itemQty = Number(getValue(data.data, quantityname()));
-						if (isNaN(itemQty)) itemQty = 1;
-						setValue(data.data, quantityname(), result.quantity * itemQty);
-						if (!setting("use-generic-price"))
-							setPrice(data.data, pricename(), result.price);
-						data.uuid = `${data.uuid}${data.rewardId ? `.Rewards.${data.rewardId}` : ""}.Items.${data.itemId}`;
-						if (sheet._onDropItem && game.system.id != "cyphersystem")
-							sheet._onDropItem({ preventDefault: () => { }, target: { closest: () => { } } }, data.data);
-						else
-							actor.createEmbeddedDocuments("Item", [data.data]);
-					}
-				});
-			}
-		}
+        let page = fromUuidSync(data.uuid);
+        if (page) {
+            MonksEnhancedJournal.fixType(page);
+            const cls = (page._getSheetClass ? page._getSheetClass() : null);
+            
+            if (cls && cls.itemDropped) {
+                cls.itemDropped.call(cls, data.itemId, actor, page).then(async (result) => {
+                    if ((result?.quantity ?? 0) > 0) {
+                        // Ensure we are working with a clean object
+                        let itemData = foundry.utils.duplicate(data.data);
+                        
+                        let itemQty = Number(getValue(itemData, quantityname()));
+                        if (isNaN(itemQty)) itemQty = 1;
+                        
+                        // Set the actual system quantity
+                        setValue(itemData, quantityname(), result.quantity * itemQty);
+                        
+                        if (!setting("use-generic-price")) {
+                            setPrice(itemData, pricename(), result.price);
+                        }
 
-		return false;
-	}
+                        // Update the UUID reference for the dropped item
+                        data.uuid = `${data.uuid}${data.rewardId ? `.Rewards.${data.rewardId}` : ""}.Items.${data.itemId}`;
+
+                        // SF2e Compatibility: Use the sheet's internal drop handler if it exists
+                        // This allows the system to handle its own stack-merging and encumbrance
+                        try {
+                            if (sheet._onDropItem && typeof sheet._onDropItem === "function") {
+                                await sheet._onDropItem(
+                                    { preventDefault: () => { }, target: { closest: () => { } } }, 
+                                    itemData
+                                );
+                            } else {
+                                await actor.createEmbeddedDocuments("Item", [itemData]);
+                            }
+                        } catch (err) {
+                            console.warn("[Monks Loot SF2e Patch] Hook drop failed, using fallback", err);
+                            await actor.createEmbeddedDocuments("Item", [itemData]);
+                        }
+                    }
+                });
+            }
+        }
+        // Return false to prevent Foundry from trying to handle the drop a second time
+        return false;
+    }
 });
 
 Hooks.on('dropJournalSheetData', (journal, sheet, data) => {
