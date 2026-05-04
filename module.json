@@ -1,7 +1,7 @@
 {
-  "title": "Monk's Enhanced Journal",
+  "title": "Monk's Enhanced Journal (SF2e patch)",
   "description": "Treat the journal like it's going to be popped out and used as a digital guide book.  Add extra information to summarize an encounter.  Show summaries of people and places.  Allow for bookmarking of commonly used pages",
-  "version": "13.06",
+  "version": "13.06.1",
   "authors": [
     {
 		"name": "IronMonk",
@@ -196,10 +196,10 @@
       }
     }
   },
-  "url": "https://github.com/ironmonk108/monks-enhanced-journal",
-  "download": "https://github.com/ironmonk108/monks-enhanced-journal/archive/13.06.zip",
-  "manifest": "https://github.com/ironmonk108/monks-enhanced-journal/releases/latest/download/module.json",
-  "bugs": "https://github.com/ironmonk108/monks-enhanced-journal/issues",
+  "url": "https://github.com/codelotusr/monks-enhanced-journal",
+  "download": "https://github.com/codelotusr/monks-enhanced-journal/archive/13.06.1.zip",
+  "manifest": "https://github.com/codelotusr/monks-enhanced-journal/releases/latest/download/module.json",
+  "bugs": "https://github.com/codelotusr/monks-enhanced-journal/issues",
   "id": "monks-enhanced-journal",
   "compatibility": {
     "minimum": "13",
